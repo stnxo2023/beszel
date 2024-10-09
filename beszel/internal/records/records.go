@@ -118,17 +118,15 @@ func (rm *RecordManager) CreateLongerRecords() {
 						continue
 					}
 					// average the shorter records and create longer record
-					var stats interface{}
-					switch collection.Name {
-					case "system_stats":
-						stats = rm.AverageSystemStats(allShorterRecords)
-					case "container_stats":
-						stats = rm.AverageContainerStats(allShorterRecords)
-					}
 					longerRecord := models.NewRecord(collection)
 					longerRecord.Set("system", system.Id)
-					longerRecord.Set("stats", stats)
 					longerRecord.Set("type", recordData.longerType)
+					switch collection.Name {
+					case "system_stats":
+						longerRecord.Set("stats", rm.AverageSystemStats(allShorterRecords))
+					case "container_stats":
+						longerRecord.Set("stats", rm.AverageContainerStats(allShorterRecords))
+					}
 					if err := txDao.SaveRecord(longerRecord); err != nil {
 						log.Println("failed to save longer record", "err", err.Error())
 					}
@@ -153,6 +151,11 @@ func (rm *RecordManager) AverageSystemStats(records []*models.Record) system.Sta
 	// use different counter for temps in case some records don't have them
 	tempCount := float64(0)
 
+	// peak values
+	peakCpu := float64(0)
+	peakNs := float64(0)
+	peakNr := float64(0)
+
 	var stats system.Stats
 	for _, record := range records {
 		record.UnmarshalJSONField("stats", &stats)
@@ -171,6 +174,10 @@ func (rm *RecordManager) AverageSystemStats(records []*models.Record) system.Sta
 		sum.DiskWritePs += stats.DiskWritePs
 		sum.NetworkSent += stats.NetworkSent
 		sum.NetworkRecv += stats.NetworkRecv
+		// set peak values
+		peakCpu = max(peakCpu, stats.PeakCpu, stats.Cpu)
+		peakNs = max(peakNs, stats.PeakNetworkSent, stats.NetworkSent)
+		peakNr = max(peakNr, stats.PeakNetworkRecv, stats.NetworkRecv)
 		// add temps to sum
 		if stats.Temperatures != nil {
 			tempCount++
@@ -196,21 +203,24 @@ func (rm *RecordManager) AverageSystemStats(records []*models.Record) system.Sta
 	}
 
 	stats = system.Stats{
-		Cpu:          twoDecimals(sum.Cpu / count),
-		Mem:          twoDecimals(sum.Mem / count),
-		MemUsed:      twoDecimals(sum.MemUsed / count),
-		MemPct:       twoDecimals(sum.MemPct / count),
-		MemBuffCache: twoDecimals(sum.MemBuffCache / count),
-		MemZfsArc:    twoDecimals(sum.MemZfsArc / count),
-		Swap:         twoDecimals(sum.Swap / count),
-		SwapUsed:     twoDecimals(sum.SwapUsed / count),
-		DiskTotal:    twoDecimals(sum.DiskTotal / count),
-		DiskUsed:     twoDecimals(sum.DiskUsed / count),
-		DiskPct:      twoDecimals(sum.DiskPct / count),
-		DiskReadPs:   twoDecimals(sum.DiskReadPs / count),
-		DiskWritePs:  twoDecimals(sum.DiskWritePs / count),
-		NetworkSent:  twoDecimals(sum.NetworkSent / count),
-		NetworkRecv:  twoDecimals(sum.NetworkRecv / count),
+		Cpu:             twoDecimals(sum.Cpu / count),
+		PeakCpu:         twoDecimals(peakCpu),
+		Mem:             twoDecimals(sum.Mem / count),
+		MemUsed:         twoDecimals(sum.MemUsed / count),
+		MemPct:          twoDecimals(sum.MemPct / count),
+		MemBuffCache:    twoDecimals(sum.MemBuffCache / count),
+		MemZfsArc:       twoDecimals(sum.MemZfsArc / count),
+		Swap:            twoDecimals(sum.Swap / count),
+		SwapUsed:        twoDecimals(sum.SwapUsed / count),
+		DiskTotal:       twoDecimals(sum.DiskTotal / count),
+		DiskUsed:        twoDecimals(sum.DiskUsed / count),
+		DiskPct:         twoDecimals(sum.DiskPct / count),
+		DiskReadPs:      twoDecimals(sum.DiskReadPs / count),
+		DiskWritePs:     twoDecimals(sum.DiskWritePs / count),
+		NetworkSent:     twoDecimals(sum.NetworkSent / count),
+		PeakNetworkSent: twoDecimals(peakNs),
+		NetworkRecv:     twoDecimals(sum.NetworkRecv / count),
+		PeakNetworkRecv: twoDecimals(peakNr),
 	}
 
 	if len(sum.Temperatures) != 0 {
