@@ -7,7 +7,7 @@ import { RecordModel, RecordSubscription } from 'pocketbase'
 import { WritableAtom } from 'nanostores'
 import { timeDay, timeHour } from 'd3-time'
 import { useEffect, useState } from 'react'
-import { CpuIcon, HardDriveIcon, MemoryStickIcon } from 'lucide-react'
+import { CpuIcon, HardDriveIcon, MemoryStickIcon, ServerIcon } from 'lucide-react'
 import { EthernetIcon, ThermometerIcon } from '@/components/ui/icons'
 
 export function cn(...inputs: ClassValue[]) {
@@ -102,8 +102,9 @@ export const formatDay = (timestamp: string) => {
 	return dayFormatter.format(new Date(timestamp))
 }
 
-export const updateFavicon = (newIcon: string) =>
-	((document.querySelector("link[rel='icon']") as HTMLLinkElement).href = `/static/${newIcon}`)
+export const updateFavicon = (newIcon: string) => {
+	;(document.querySelector("link[rel='icon']") as HTMLLinkElement).href = `/static/${newIcon}`
+}
 
 export const isAdmin = () => pb.authStore.model?.role === 'admin'
 export const isReadOnlyUser = () => pb.authStore.model?.role === 'readonly'
@@ -299,6 +300,13 @@ export const getSizeAndUnit = (n: number, isGigabytes = true) => {
 export const chartMargin = { top: 12 }
 
 export const alertInfo = {
+	Status: {
+		name: 'Status',
+		unit: '',
+		icon: ServerIcon,
+		desc: 'Triggers when status switches between up and down.',
+		single: true,
+	},
 	CPU: {
 		name: 'CPU usage',
 		unit: '%',
